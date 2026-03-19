@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webpack 6 — Enter the Universe</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --neon-blue:#00d4ff;--neon-purple:#bf00ff;--neon-green:#00ff88;--neon-orange:#ff6b00;
+  --deep:#020510;--dark:#050d1a;--panel:rgba(0,212,255,0.05);
+  --border:rgba(0,212,255,0.15);--border-hot:rgba(0,212,255,0.5);
+  --orb:'Orbitron',monospace;--body:'Space Grotesk',sans-serif;--mono:'JetBrains Mono',monospace;
+  --ease:cubic-bezier(.4,0,.2,1);--spring:cubic-bezier(.34,1.56,.64,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:var(--body);background:var(--deep);color:#e0eaff;overflow-x:hidden;cursor:none}
+
+/* ─── CURSOR ─────────────────────────────────── */
+#cursor{position:fixed;width:12px;height:12px;border-radius:50%;
+  background:var(--neon-blue);pointer-events:none;z-index:9999;
+  transform:translate(-50%,-50%);transition:transform .1s,width .2s,height .2s,opacity .2s;
+  box-shadow:0 0 16px var(--neon-blue),0 0 40px rgba(0,212,255,.3)}
+#cursor-ring{position:fixed;width:36px;height:36px;border-radius:50%;
+  border:1px solid rgba(0,212,255,.4);pointer-events:none;z-index:9998;
+  transform:translate(-50%,-50%);transition:transform .12s,width .2s,height .2s,border-color .2s}
+
+/* ─── LOADING SCREEN ──────────────────────────── */
+#loader{position:fixed;inset:0;z-index:10000;background:var(--deep);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity .8s,visibility .8s}
+#loader.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.loader-scooter{font-size:72px;animation:loaderBounce 1s ease-in-out infinite}
+@keyframes loaderBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.loader-bar-wrap{width:260px;height:3px;background:rgba(0,212,255,.15);border-radius:2px;margin-top:32px;overflow:hidden}
+.loader-bar{height:100%;background:linear-gradient(90deg,var(--neon-blue),var(--neon-purple));
+  border-radius:2px;width:0%;transition:width .05s}
+.loader-text{font-family:var(--orb);font-size:11px;letter-spacing:.2em;
+  color:var(--neon-blue);margin-top:16px;opacity:.7}
+
+/* ─── NAV ─────────────────────────────────────── */
+#nav{position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:1000;
+  display:flex;align-items:center;gap:4px;
+  background:rgba(2,5,16,.7);backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid var(--border);border-radius:50px;padding:8px 16px;
+  transition:all .4s var(--ease)}
+.nav-logo{font-family:var(--orb);font-size:13px;font-weight:700;
+  color:var(--neon-blue);letter-spacing:.08em;padding:6px 16px;
+  text-shadow:0 0 20px var(--neon-blue)}
+.nav-divider{width:1px;height:20px;background:var(--border);margin:0 4px}
+.nav-item{position:relative}
+.nav-btn{font-family:var(--body);font-size:13px;font-weight:500;color:rgba(224,234,255,.7);
+  background:none;border:none;padding:7px 14px;border-radius:50px;cursor:none;
+  transition:color .2s,background .2s}
+.nav-btn:hover{color:#fff;background:rgba(0,212,255,.1)}
+.nav-dropdown{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);
+  background:rgba(2,5,16,.95);backdrop-filter:blur(24px);border:1px solid var(--border);
+  border-radius:16px;padding:8px;min-width:220px;opacity:0;visibility:hidden;
+  transform:translateX(-50%) translateY(-8px);transition:all .25s var(--ease);pointer-events:none}
+.nav-item:hover .nav-dropdown{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);pointer-events:all}
+.nav-drop-item{display:block;padding:10px 14px;border-radius:10px;font-size:13px;
+  color:rgba(224,234,255,.8);text-decoration:none;cursor:none;
+  transition:background .2s,color .2s;border:1px solid transparent}
+.nav-drop-item:hover{background:rgba(0,212,255,.08);border-color:var(--border);color:#fff}
+.nav-drop-icon{font-size:16px;margin-right:8px}
+.nav-drop-label{font-size:10px;color:var(--neon-blue);font-family:var(--orb);letter-spacing:.1em;
+  padding:6px 14px 2px;display:block}
+.nav-progress{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--neon-blue),var(--neon-purple),var(--neon-green));
+  z-index:1001;width:0%;transition:width .1s}
+
+/* ─── MINI MAP ────────────────────────────────── */
+#minimap{position:fixed;right:24px;top:50%;transform:translateY(-50%);
+  z-index:800;display:flex;flex-direction:column;gap:10px;align-items:center}
+.map-dot{width:8px;height:8px;border-radius:50%;border:1px solid rgba(0,212,255,.4);
+  cursor:none;transition:all .3s;background:transparent}
+.map-dot.active{background:var(--neon-blue);border-color:var(--neon-blue);
+  box-shadow:0 0 10px var(--neon-blue);transform:scale(1.4)}
+.map-dot:hover{border-color:var(--neon-blue)}
+.map-label{font-family:var(--orb);font-size:9px;color:rgba(0,212,255,.5);
+  letter-spacing:.1em;writing-mode:horizontal-tb;opacity:0;
+  transition:opacity .2s;white-space:nowrap;position:absolute;right:20px}
+#minimap:hover .map-label{opacity:1}
+
+/* ─── MUSIC TOGGLE ────────────────────────────── */
+#music-btn{position:fixed;left:24px;bottom:24px;z-index:900;
+  width:44px;height:44px;border-radius:50%;
+  background:rgba(2,5,16,.8);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;cursor:none;transition:all .3s;backdrop-filter:blur(12px)}
+#music-btn:hover{border-color:var(--neon-blue);box-shadow:0 0 20px rgba(0,212,255,.3)}
+#music-btn.playing{border-color:var(--neon-green);animation:musicPulse 2s infinite}
+@keyframes musicPulse{0%,100%{box-shadow:0 0 10px rgba(0,255,136,.3)}
+  50%{box-shadow:0 0 30px rgba(0,255,136,.6)}}
+
+/* ─── CANVAS SCENE ────────────────────────────── */
+#scene-canvas{position:fixed;inset:0;z-index:1;pointer-events:none}
+
+/* ─── SCROLL CONTAINER ────────────────────────── */
+#scroll-world{position:relative;z-index:2}
+
+/* ─── SECTION BASE ────────────────────────────── */
+.world-section{min-height:100vh;position:relative;display:flex;
+  align-items:center;justify-content:center;padding:80px 24px}
+
+/* ─── S0: INTRO / NIGHT ROAD ──────────────────── */
+#s0{min-height:200vh;align-items:flex-start;padding-top:0;overflow:hidden}
+#road-canvas{position:sticky;top:0;width:100%;height:100vh;display:block;z-index:4;pointer-events:auto;cursor:none}
+.road-overlay{position:sticky;top:0;width:100%;height:100vh;z-index:3;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:80px}
+#steer-hint{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  font-family:var(--orb);font-size:11px;letter-spacing:.15em;color:rgba(0,212,255,.65);
+  pointer-events:none;z-index:500;text-align:center;
+  transition:opacity .8s;white-space:nowrap}
+#steer-hint.hidden{opacity:0;pointer-events:none}
+.hero-title{font-family:var(--orb);font-size:clamp(2.4rem,6vw,5rem);font-weight:900;
+  text-align:center;line-height:1.05;letter-spacing:-.01em;
+  background:linear-gradient(135deg,var(--neon-blue),#fff 40%,var(--neon-purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  text-shadow:none;margin-bottom:16px;
+  animation:heroIn 1.2s 2s var(--ease) both}
+.hero-sub{font-size:16px;font-weight:300;color:rgba(224,234,255,.6);text-align:center;
+  letter-spacing:.06em;animation:heroIn 1.2s 2.3s var(--ease) both}
+@keyframes heroIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.scroll-hint{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);
+  font-family:var(--orb);font-size:10px;letter-spacing:.2em;color:rgba(0,212,255,.5);
+  animation:scrollBob 2s infinite}
+@keyframes scrollBob{0%,100%{opacity:.4;transform:translateX(-50%) translateY(0)}
+  50%{opacity:1;transform:translateX(-50%) translateY(-6px)}}
+
+/* ─── PORTAL SECTION ──────────────────────────── */
+#s-portal{min-height:100vh;position:relative;overflow:hidden;z-index:5}
+#portal-canvas{position:absolute;inset:0;width:100%;height:100%}
+.portal-content{position:relative;z-index:10;text-align:center}
+.portal-label{font-family:var(--orb);font-size:clamp(1.6rem,4vw,3rem);font-weight:700;
+  color:#fff;text-shadow:0 0 40px var(--neon-blue),0 0 80px var(--neon-purple);
+  margin-bottom:24px;animation:glowPulse 3s infinite alternate}
+@keyframes glowPulse{from{text-shadow:0 0 30px var(--neon-blue),0 0 60px rgba(0,212,255,.3)}
+  to{text-shadow:0 0 60px var(--neon-blue),0 0 120px var(--neon-purple),0 0 200px rgba(191,0,255,.2)}}
+.enter-btn{font-family:var(--orb);font-size:14px;font-weight:600;letter-spacing:.12em;
+  padding:16px 40px;border:1px solid var(--neon-blue);border-radius:50px;
+  background:rgba(0,212,255,.08);color:var(--neon-blue);cursor:none;
+  transition:all .4s var(--ease);text-transform:uppercase;
+  box-shadow:0 0 30px rgba(0,212,255,.2),inset 0 0 30px rgba(0,212,255,.05)}
+.enter-btn:hover{background:rgba(0,212,255,.15);box-shadow:0 0 60px rgba(0,212,255,.4),inset 0 0 40px rgba(0,212,255,.1);
+  transform:scale(1.05)}
+
+/* ─── UNIVERSE SECTIONS ────────────────────────── */
+#universe{background:linear-gradient(180deg,#020510 0%,#030820 30%,#050d20 100%);
+  position:relative;z-index:5}
+.universe-bg{position:absolute;inset:0;background:
+  radial-gradient(ellipse 80% 50% at 20% 30%,rgba(0,212,255,.04) 0%,transparent 60%),
+  radial-gradient(ellipse 60% 40% at 80% 70%,rgba(191,0,255,.04) 0%,transparent 60%);
+  pointer-events:none}
+
+.world{min-height:100vh;padding:100px 5vw;display:flex;align-items:center;
+  position:relative;gap:6vw}
+.world:nth-child(even){flex-direction:row-reverse}
+.world-info{flex:1;max-width:520px}
+.world-tag{font-family:var(--orb);font-size:10px;font-weight:600;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--neon-blue);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.world-tag::before{content:'';width:24px;height:1px;background:var(--neon-blue);
+  box-shadow:0 0 8px var(--neon-blue)}
+.world-title{font-family:var(--orb);font-size:clamp(1.8rem,3.5vw,2.8rem);font-weight:700;
+  line-height:1.1;margin-bottom:16px;
+  background:linear-gradient(135deg,#fff 0%,var(--neon-blue) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.world-desc{font-size:15px;font-weight:300;color:rgba(224,234,255,.7);line-height:1.8;margin-bottom:28px}
+.world-visual{flex:1;min-height:400px;position:relative;display:flex;align-items:center;justify-content:center}
+
+/* GLASS PANEL */
+.glass{background:rgba(0,212,255,.04);backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:20px;padding:28px}
+.glass-hot{border-color:var(--border-hot);box-shadow:0 0 40px rgba(0,212,255,.1),inset 0 0 40px rgba(0,212,255,.02)}
+
+/* CODE BLOCK */
+.code-block{font-family:var(--mono);font-size:13px;line-height:1.9;
+  background:rgba(0,0,0,.6);border:1px solid var(--border);border-radius:12px;
+  padding:20px 24px;position:relative;overflow:hidden}
+.code-block::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--neon-blue),var(--neon-purple))}
+.code-tag{color:var(--neon-blue)}.code-str{color:var(--neon-green)}.code-cm{color:#4a5568}.code-kw{color:var(--neon-purple)}
+.code-num{color:var(--neon-orange)}.code-fn{color:#ffd700}
+
+/* FEATURE PILL */
+.feature-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.pill{font-family:var(--orb);font-size:10px;font-weight:600;letter-spacing:.1em;
+  padding:6px 14px;border-radius:20px;border:1px solid;text-transform:uppercase}
+.pill-blue{border-color:rgba(0,212,255,.4);color:var(--neon-blue);background:rgba(0,212,255,.06)}
+.pill-purple{border-color:rgba(191,0,255,.4);color:#d060ff;background:rgba(191,0,255,.06)}
+.pill-green{border-color:rgba(0,255,136,.4);color:var(--neon-green);background:rgba(0,255,136,.06)}
+.pill-orange{border-color:rgba(255,107,0,.4);color:var(--neon-orange);background:rgba(255,107,0,.06)}
+
+/* ENTRY WORLD VISUAL */
+.entry-flow{width:100%;position:relative}
+.entry-node{display:flex;align-items:center;gap:0;position:relative;margin-bottom:12px}
+.e-file{font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:10px;
+  background:rgba(0,0,0,.6);border:1px solid;white-space:nowrap;
+  transition:all .4s;cursor:default}
+.e-file:hover{transform:translateX(4px);box-shadow:0 0 20px currentColor}
+.e-arrow{flex:1;height:2px;position:relative;margin:0 8px;overflow:visible}
+.e-arrow::after{content:'';position:absolute;right:-6px;top:-4px;
+  border-left:8px solid;border-top:5px solid transparent;border-bottom:5px solid transparent}
+.e-bundle{padding:16px 20px;border-radius:12px;background:rgba(0,212,255,.08);
+  border:1px solid var(--neon-blue);font-family:var(--mono);font-size:13px;
+  text-align:center;box-shadow:0 0 30px rgba(0,212,255,.15)}
+
+/* MODULE GRAPH VISUAL */
+#module-graph{width:100%;height:340px;position:relative}
+.m-node{position:absolute;width:70px;height:70px;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;font-weight:500;border:1px solid;
+  cursor:none;transition:all .3s var(--spring);text-align:center;line-height:1.3}
+.m-node:hover{transform:scale(1.2);z-index:10}
+.m-line{position:absolute;background:linear-gradient(90deg,var(--neon-blue),transparent);
+  height:1px;transform-origin:left center;opacity:.4;pointer-events:none}
+
+/* CODE SPLIT VISUAL */
+.split-demo{width:100%;position:relative}
+.big-bundle{width:100%;height:60px;border-radius:10px;
+  background:linear-gradient(90deg,rgba(191,0,255,.3),rgba(0,212,255,.3));
+  border:1px solid rgba(0,212,255,.4);display:flex;align-items:center;
+  justify-content:center;font-family:var(--orb);font-size:13px;
+  margin-bottom:24px;position:relative;overflow:hidden;cursor:default}
+.big-bundle::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent);
+  animation:shimmer 2s infinite}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.split-arrow{text-align:center;font-size:28px;color:var(--neon-blue);margin-bottom:20px;
+  animation:splitBounce 1.5s ease-in-out infinite}
+@keyframes splitBounce{0%,100%{transform:translateY(-3px)}50%{transform:translateY(3px)}}
+.chunks{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.chunk{padding:14px 10px;border-radius:10px;text-align:center;font-family:var(--mono);font-size:11px;
+  border:1px solid;cursor:default;transition:all .3s}
+.chunk:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+
+/* PLUGIN WORLD VISUAL */
+.plugin-engine{display:flex;flex-direction:column;gap:12px}
+.plugin-item{display:flex;align-items:center;gap:12px;padding:14px 18px;
+  border-radius:12px;background:rgba(0,0,0,.4);border:1px solid var(--border);
+  cursor:none;transition:all .35s var(--ease)}
+.plugin-item:hover{border-color:var(--border-hot);background:rgba(0,212,255,.05);
+  transform:translateX(6px);box-shadow:0 0 20px rgba(0,212,255,.1)}
+.plugin-icon{font-size:22px;flex-shrink:0}
+.plugin-name{font-family:var(--orb);font-size:12px;font-weight:600;color:var(--neon-blue);letter-spacing:.06em}
+.plugin-desc{font-size:12px;color:rgba(224,234,255,.5);margin-top:2px}
+.plugin-badge{margin-left:auto;font-family:var(--orb);font-size:9px;padding:3px 9px;
+  border-radius:10px;letter-spacing:.08em}
+
+/* PERF WORLD VISUAL */
+.perf-bars{display:flex;flex-direction:column;gap:10px}
+.perf-row{display:flex;align-items:center;gap:12px}
+.perf-label{font-family:var(--mono);font-size:11px;color:rgba(224,234,255,.7);width:90px;flex-shrink:0}
+.perf-track{flex:1;height:10px;background:rgba(255,255,255,.06);border-radius:5px;overflow:hidden}
+.perf-bar{height:100%;border-radius:5px;transition:width 1.5s var(--ease)}
+.perf-val{font-family:var(--mono);font-size:11px;width:40px;text-align:right;flex-shrink:0}
+
+/* PARTICLES */
+.particle{position:fixed;border-radius:50%;pointer-events:none;z-index:0;opacity:0;
+  animation:particleFly var(--dur,8s) linear infinite}
+@keyframes particleFly{
+  0%{opacity:0;transform:translateY(100vh) translateX(0) scale(0)}
+  10%{opacity:.6}
+  90%{opacity:.3}
+  100%{opacity:0;transform:translateY(-20px) translateX(var(--dx,40px)) scale(1)}}
+
+/* FLOATING CODE */
+.float-code{position:absolute;font-family:var(--mono);font-size:11px;
+  color:rgba(0,212,255,.3);pointer-events:none;animation:floatCode var(--dur,10s) linear infinite;
+  white-space:nowrap}
+@keyframes floatCode{
+  0%{opacity:0;transform:translateY(20px)}
+  20%{opacity:1}
+  80%{opacity:.5}
+  100%{opacity:0;transform:translateY(-80px)}}
+
+/* GLOWING SECTION DIVIDER */
+.section-divider{width:100%;height:1px;background:linear-gradient(90deg,transparent,var(--neon-blue),transparent);
+  margin:0;opacity:.3}
+
+/* REVEAL ANIMATION */
+.reveal-up{opacity:0;transform:translateY(50px);
+  transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.reveal-up.in{opacity:1;transform:translateY(0)}
+.reveal-left{opacity:0;transform:translateX(-50px);
+  transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.reveal-left.in{opacity:1;transform:translateX(0)}
+.reveal-right{opacity:0;transform:translateX(50px);
+  transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.reveal-right.in{opacity:1;transform:translateX(0)}
+.rd1{transition-delay:.1s}.rd2{transition-delay:.2s}.rd3{transition-delay:.3s}
+.rd4{transition-delay:.4s}.rd5{transition-delay:.5s}
+
+/* INTERACTIVE TABS */
+.doc-tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+.doc-tab{font-family:var(--orb);font-size:11px;letter-spacing:.1em;font-weight:600;
+  padding:8px 18px;border-radius:20px;border:1px solid var(--border);
+  background:transparent;color:rgba(224,234,255,.5);cursor:none;transition:all .25s;text-transform:uppercase}
+.doc-tab.on{border-color:var(--neon-blue);color:var(--neon-blue);background:rgba(0,212,255,.08);
+  box-shadow:0 0 16px rgba(0,212,255,.2)}
+.doc-panel{display:none}.doc-panel.on{display:block}
+
+/* RESPONSIVE */
+@media(max-width:860px){
+  .world{flex-direction:column!important;gap:40px;padding:80px 5vw}
+  .world-info,.world-visual{max-width:100%;width:100%}
+  #minimap{display:none}
+  .nav-logo{font-size:11px}
+  .nav-btn{font-size:12px;padding:6px 10px}
+}
+
+/* SCROLL TO TOP */
+#top-btn{position:fixed;right:24px;bottom:24px;z-index:900;width:44px;height:44px;
+  border-radius:50%;background:rgba(2,5,16,.8);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:18px;cursor:none;
+  backdrop-filter:blur(12px);transition:all .3s;opacity:0;pointer-events:none}
+#top-btn.show{opacity:1;pointer-events:all}
+#top-btn:hover{border-color:var(--neon-blue);box-shadow:0 0 20px rgba(0,212,255,.3)}
+</style>
+</head>
+<body>
+
+<!-- CURSOR -->
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- NAV PROGRESS -->
+<div class="nav-progress" id="nav-progress"></div>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-scooter">🛵</div>
+  <div style="font-family:var(--orb);font-size:13px;font-weight:700;color:var(--neon-blue);
+    letter-spacing:.15em;margin-top:24px;text-shadow:0 0 20px var(--neon-blue)">WEBPACK 6</div>
+  <div style="font-family:var(--body);font-size:12px;color:rgba(224,234,255,.4);margin-top:4px;letter-spacing:.08em">
+    Preparing the universe...</div>
+  <div class="loader-bar-wrap"><div class="loader-bar" id="loader-bar"></div></div>
+  <div class="loader-text" id="loader-text">IGNITING ENGINE</div>
+</div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-logo">WP6</div>
+  <div class="nav-divider"></div>
+
+  <div class="nav-item">
+    <button class="nav-btn">Learn</button>
+    <div class="nav-dropdown">
+      <span class="nav-drop-label">Choose your path</span>
+      <a class="nav-drop-item" href="#w1" onclick="scrollTo('#w1')"><span class="nav-drop-icon">🎬</span>Story Mode</a>
+      <a class="nav-drop-item" href="#w1"><span class="nav-drop-icon">📖</span>Docs Mode</a>
+    </div>
+  </div>
+
+  <div class="nav-item">
+    <button class="nav-btn">Concepts</button>
+    <div class="nav-dropdown">
+      <span class="nav-drop-label">Explore</span>
+      <a class="nav-drop-item" href="#w1"><span class="nav-drop-icon">🌐</span>Visual Explorer</a>
+      <a class="nav-drop-item" href="#w1"><span class="nav-drop-icon">⚙️</span>API Reference</a>
+    </div>
+  </div>
+
+  <div class="nav-item">
+    <button class="nav-btn">Performance</button>
+    <div class="nav-dropdown">
+      <span class="nav-drop-label">Optimize</span>
+      <a class="nav-drop-item" href="#w5"><span class="nav-drop-icon">🚀</span>Interactive Demo</a>
+      <a class="nav-drop-item" href="#w5"><span class="nav-drop-icon">📊</span>Technical Guide</a>
+    </div>
+  </div>
+
+  <div class="nav-item">
+    <button class="nav-btn">Community</button>
+    <div class="nav-dropdown">
+      <span class="nav-drop-label">Connect</span>
+      <a class="nav-drop-item" href="https://github.com/webpack" target="_blank"><span class="nav-drop-icon">👥</span>Contributors</a>
+      <a class="nav-drop-item" href="https://github.com/webpack/webpack" target="_blank"><span class="nav-drop-icon">💡</span>How to Contribute</a>
+    </div>
+  </div>
+</nav>
+
+<!-- MINI MAP -->
+<div id="minimap">
+  <div class="map-dot active" data-section="s0" onclick="scrollToSection(0)" title="Start"></div>
+  <div class="map-dot" data-section="s-portal" onclick="scrollToSection(1)" title="Portal"></div>
+  <div class="map-dot" data-section="w1" onclick="scrollToSection(2)" title="Entry"></div>
+  <div class="map-dot" data-section="w2" onclick="scrollToSection(3)" title="Modules"></div>
+  <div class="map-dot" data-section="w3" onclick="scrollToSection(4)" title="Splitting"></div>
+  <div class="map-dot" data-section="w4" onclick="scrollToSection(5)" title="Plugins"></div>
+  <div class="map-dot" data-section="w5" onclick="scrollToSection(6)" title="Performance"></div>
+</div>
+
+<!-- MUSIC BTN -->
+<button id="music-btn" onclick="toggleMusic()" title="Toggle ambient sound">🔇</button>
+
+<!-- SCROLL TO TOP -->
+<button id="top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- BACKGROUND CANVAS -->
+<canvas id="scene-canvas"></canvas>
+
+<!-- SCROLL WORLD -->
+<div id="scroll-world">
+
+  <!-- S0: NIGHT ROAD / HERO -->
+  <section id="s0">
+    <canvas id="road-canvas"></canvas>
+    <div class="road-overlay">
+      <div class="scroll-hint" style="margin-top:40px">↓ SCROLL TO ENTER ↓</div>
+    </div>
+  </section>
+
+  <!-- PORTAL SECTION -->
+  <section id="s-portal" class="world-section">
+    <canvas id="portal-canvas"></canvas>
+    <div class="portal-content">
+      <div class="portal-label">⟁ WEBPACK UNIVERSE ⟁</div>
+      <p style="font-size:15px;color:rgba(224,234,255,.6);margin-bottom:32px;letter-spacing:.06em">
+        Your journey through the bundler multiverse begins here
+      </p>
+      <button class="enter-btn" onclick="enterUniverse()">Enter the Universe</button>
+    </div>
+  </section>
+
+  <!-- UNIVERSE -->
+  <div id="universe">
+    <div class="universe-bg"></div>
+
+    <!-- W1: ENTRY POINT WORLD -->
+    <section class="world world-section" id="w1">
+      <div class="world-info reveal-left">
+        <div class="world-tag">World 01 — Entry Points</div>
+        <h2 class="world-title">Where every<br>bundle begins</h2>
+        <p class="world-desc">
+          Webpack starts from one or more entry files and traces every <code style="color:var(--neon-blue);font-family:var(--mono)">import</code> and <code style="color:var(--neon-blue);font-family:var(--mono)">require()</code> outward, building a complete dependency graph before writing a single byte to disk.
+        </p>
+
+        <div class="doc-tabs">
+          <button class="doc-tab on" onclick="switchTab('entry','story')">Story Mode</button>
+          <button class="doc-tab" onclick="switchTab('entry','docs')">Docs Mode</button>
+          <button class="doc-tab" onclick="switchTab('entry','api')">API</button>
+        </div>
+        <div id="entry-story" class="doc-panel on">
+          <div class="code-block">
+            <span class="code-cm">// webpack.config.js</span><br>
+            <span class="code-kw">module</span>.<span class="code-fn">exports</span> = {<br>
+            &nbsp;&nbsp;<span class="code-tag">entry</span>: {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-str">main</span>: <span class="code-str">'./src/index.js'</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-str">admin</span>: <span class="code-str">'./src/admin.js'</span><br>
+            &nbsp;&nbsp;}<br>
+            }
+          </div>
+        </div>
+        <div id="entry-docs" class="doc-panel">
+          <div class="glass" style="padding:20px">
+            <p style="font-size:13px;line-height:1.8;color:rgba(224,234,255,.8)">
+              <strong style="color:var(--neon-blue)">entry</strong> — The point or points where to start the application bundling process. If an array is passed, all items will be processed.<br><br>
+              Supports: <strong>String · Array · Object · Function</strong><br><br>
+              Webpack 6 adds support for <strong style="color:var(--neon-green)">HTML entry points</strong>, allowing <code style="font-family:var(--mono);color:var(--neon-blue)">'./src/index.html'</code> as entry.
+            </p>
+          </div>
+        </div>
+        <div id="entry-api" class="doc-panel">
+          <div class="code-block">
+            <span class="code-cm">// Dynamic entry (function)</span><br>
+            <span class="code-tag">entry</span>: () =&gt; <span class="code-kw">new</span> <span class="code-fn">Promise</span>(<br>
+            &nbsp;&nbsp;resolve =&gt; resolve({<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-str">a</span>: <span class="code-str">'./src/a.js'</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-str">b</span>: <span class="code-str">'./src/b.js'</span><br>
+            &nbsp;&nbsp;})<br>
+            )
+          </div>
+        </div>
+        <div class="feature-pills" style="margin-top:16px">
+          <span class="pill pill-blue">Single Entry</span>
+          <span class="pill pill-purple">Multi Entry</span>
+          <span class="pill pill-green">HTML Entry ✨</span>
+          <span class="pill pill-orange">Dynamic Entry</span>
+        </div>
+      </div>
+
+      <div class="world-visual reveal-right">
+        <div class="entry-flow glass glass-hot" style="padding:28px;width:100%">
+          <div style="font-family:var(--orb);font-size:10px;color:var(--neon-blue);letter-spacing:.15em;margin-bottom:20px">DEPENDENCY GRAPH</div>
+          <div class="entry-node" style="margin-bottom:20px">
+            <div class="e-file" style="border-color:var(--neon-blue);color:var(--neon-blue)">📄 index.html</div>
+            <div class="e-arrow" style="background:var(--neon-blue);min-width:30px;box-shadow:0 0 8px var(--neon-blue)">
+              <span style="display:none"></span>
+            </div>
+            <div class="e-file" style="border-color:var(--neon-green);color:var(--neon-green)">📦 app.js</div>
+          </div>
+          <div style="margin-left:40px;display:flex;flex-direction:column;gap:10px">
+            <div class="entry-node">
+              <div style="width:20px;height:20px;border-left:1px solid var(--neon-blue);border-bottom:1px solid var(--neon-blue);flex-shrink:0;margin-top:-10px"></div>
+              <div class="e-file" style="border-color:rgba(191,0,255,.5);color:#d060ff;margin-left:8px">🎨 styles.css</div>
+            </div>
+            <div class="entry-node">
+              <div style="width:20px;height:20px;border-left:1px solid var(--neon-blue);border-bottom:1px solid var(--neon-blue);flex-shrink:0;margin-top:-10px"></div>
+              <div class="e-file" style="border-color:rgba(255,215,0,.4);color:#ffd700;margin-left:8px">🖼️ logo.png</div>
+            </div>
+            <div class="entry-node">
+              <div style="width:20px;height:20px;border-left:1px solid rgba(0,212,255,.3);border-bottom:1px solid rgba(0,212,255,.3);flex-shrink:0;margin-top:-10px"></div>
+              <div class="e-file" style="border-color:rgba(0,255,136,.4);color:var(--neon-green);margin-left:8px">⚛️ component.jsx</div>
+            </div>
+          </div>
+          <div style="margin-top:24px;padding:12px 16px;border-radius:10px;background:rgba(0,212,255,.08);
+            border:1px solid var(--neon-blue);text-align:center;font-family:var(--orb);font-size:12px;
+            color:var(--neon-blue);box-shadow:0 0 20px rgba(0,212,255,.1)">
+            ✓ dist/main.[hash].js · styles.[hash].css
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- W2: MODULE GRAPH WORLD -->
+    <section class="world world-section" id="w2">
+      <div class="world-info reveal-right">
+        <div class="world-tag" style="color:var(--neon-purple)">World 02 — Module Graph</div>
+        <h2 class="world-title" style="background:linear-gradient(135deg,#fff,var(--neon-purple));-webkit-background-clip:text;background-clip:text">Connected nodes,<br>infinite power</h2>
+        <p class="world-desc">Every file in your project is a module. Webpack 6 builds an enhanced dependency graph that understands async chunks, dynamic imports, and circular dependencies with millisecond precision.</p>
+        <div class="doc-tabs">
+          <button class="doc-tab on" onclick="switchTab('module','info')">Info</button>
+          <button class="doc-tab" onclick="switchTab('module','config')">Config</button>
+        </div>
+        <div id="module-info" class="doc-panel on">
+          <div class="glass" style="padding:20px">
+            <p style="font-size:13px;line-height:1.9;color:rgba(224,234,255,.8)">
+              <strong style="color:var(--neon-purple)">Module types</strong> supported by Webpack 6:<br><br>
+              • <strong>ESM</strong> — <code style="font-family:var(--mono);color:var(--neon-green)">import / export</code><br>
+              • <strong>CommonJS</strong> — <code style="font-family:var(--mono);color:var(--neon-blue)">require()</code><br>
+              • <strong>CSS/SCSS</strong> — via loaders<br>
+              • <strong>Assets</strong> — images, fonts, SVG<br>
+              • <strong>WASM</strong> — WebAssembly modules
+            </p>
+          </div>
+        </div>
+        <div id="module-config" class="doc-panel">
+          <div class="code-block">
+            <span class="code-tag">module</span>: {<br>
+            &nbsp;&nbsp;<span class="code-tag">rules</span>: [<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;{ <span class="code-tag">test</span>: <span class="code-str">/\.css$/</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-tag">use</span>: [<span class="code-str">'style-loader'</span>, <span class="code-str">'css-loader'</span>] }<br>
+            &nbsp;&nbsp;]<br>
+            }
+          </div>
+        </div>
+        <div class="feature-pills" style="margin-top:16px">
+          <span class="pill pill-purple">ESM Modules</span>
+          <span class="pill pill-blue">CommonJS</span>
+          <span class="pill pill-green">WebAssembly</span>
+        </div>
+      </div>
+
+      <div class="world-visual reveal-left">
+        <div id="module-graph" class="glass glass-hot" style="padding:16px;width:100%;height:340px;border-radius:20px">
+          <!-- nodes rendered by JS -->
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- W3: CODE SPLITTING WORLD -->
+    <section class="world world-section" id="w3">
+      <div class="world-info reveal-left">
+        <div class="world-tag" style="color:var(--neon-green)">World 03 — Code Splitting</div>
+        <h2 class="world-title" style="background:linear-gradient(135deg,#fff,var(--neon-green));-webkit-background-clip:text;background-clip:text">Divide to<br>conquer load time</h2>
+        <p class="world-desc">Instead of one massive bundle, webpack 6 intelligently splits your code into multiple chunks. Critical code loads first — the rest follows on demand, dramatically improving initial page load.</p>
+        <div class="doc-tabs">
+          <button class="doc-tab on" onclick="switchTab('split','dynamic')">Dynamic Import</button>
+          <button class="doc-tab" onclick="switchTab('split','config')">SplitChunks</button>
+        </div>
+        <div id="split-dynamic" class="doc-panel on">
+          <div class="code-block">
+            <span class="code-cm">// Lazy load a route</span><br>
+            <span class="code-kw">const</span> <span class="code-fn">loadPage</span> = <span class="code-kw">async</span> () =&gt; {<br>
+            &nbsp;&nbsp;<span class="code-kw">const</span> { <span class="code-tag">Page</span> } = <span class="code-kw">await</span> <span class="code-fn">import</span>(<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-cm">/* webpackChunkName: "page" */</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-str">'./Page'</span><br>
+            &nbsp;&nbsp;);<br>
+            &nbsp;&nbsp;<span class="code-tag">Page</span>.<span class="code-fn">render</span>();<br>
+            };
+          </div>
+        </div>
+        <div id="split-config" class="doc-panel">
+          <div class="code-block">
+            <span class="code-tag">optimization</span>: {<br>
+            &nbsp;&nbsp;<span class="code-tag">splitChunks</span>: {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-tag">chunks</span>: <span class="code-str">'all'</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-tag">minSize</span>: <span class="code-num">20000</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-tag">cacheGroups</span>: {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-tag">vendors</span>: {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-tag">test</span>: <span class="code-str">/node_modules/</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+            &nbsp;&nbsp;}<br>
+            }
+          </div>
+        </div>
+        <div class="feature-pills" style="margin-top:16px">
+          <span class="pill pill-green">Lazy Loading</span>
+          <span class="pill pill-blue">SplitChunks</span>
+          <span class="pill pill-orange">Prefetch</span>
+        </div>
+      </div>
+
+      <div class="world-visual reveal-right">
+        <div class="glass glass-hot" style="padding:28px;width:100%;border-radius:20px">
+          <div style="font-family:var(--orb);font-size:10px;color:var(--neon-green);letter-spacing:.15em;margin-bottom:20px">CHUNK SPLITTING DEMO</div>
+          <div class="split-demo">
+            <div class="big-bundle">
+              <span style="font-family:var(--mono);font-size:13px;color:rgba(224,234,255,.9)">📦 bundle.js &nbsp;·&nbsp; <span id="bundle-size">4.2 MB</span></span>
+            </div>
+            <div class="split-arrow">⚡</div>
+            <div class="chunks">
+              <div class="chunk" style="border-color:rgba(0,212,255,.5);color:var(--neon-blue);background:rgba(0,212,255,.06)">
+                <div style="font-size:16px;margin-bottom:4px">🏠</div>
+                <div style="font-family:var(--orb);font-size:9px;letter-spacing:.08em">MAIN</div>
+                <div style="font-family:var(--mono);font-size:11px;margin-top:4px;color:rgba(224,234,255,.6)">120 KB</div>
+              </div>
+              <div class="chunk" style="border-color:rgba(191,0,255,.4);color:#d060ff;background:rgba(191,0,255,.06)">
+                <div style="font-size:16px;margin-bottom:4px">🛒</div>
+                <div style="font-family:var(--orb);font-size:9px;letter-spacing:.08em">VENDOR</div>
+                <div style="font-family:var(--mono);font-size:11px;margin-top:4px;color:rgba(224,234,255,.6)">380 KB</div>
+              </div>
+              <div class="chunk" style="border-color:rgba(0,255,136,.4);color:var(--neon-green);background:rgba(0,255,136,.06)">
+                <div style="font-size:16px;margin-bottom:4px">⚡</div>
+                <div style="font-family:var(--orb);font-size:9px;letter-spacing:.08em">LAZY</div>
+                <div style="font-family:var(--mono);font-size:11px;margin-top:4px;color:rgba(224,234,255,.6)">on demand</div>
+              </div>
+            </div>
+            <div style="margin-top:16px;padding:10px 16px;border-radius:8px;
+              background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);
+              font-family:var(--mono);font-size:11px;color:var(--neon-green)">
+              ✓ Initial load: 120 KB (-97%) · Cached: vendor.js
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- W4: PLUGIN WORLD -->
+    <section class="world world-section" id="w4">
+      <div class="world-info reveal-right">
+        <div class="world-tag" style="color:var(--neon-orange)">World 04 — Plugin System</div>
+        <h2 class="world-title" style="background:linear-gradient(135deg,#fff,var(--neon-orange));-webkit-background-clip:text;background-clip:text">Plugins are<br>the real power</h2>
+        <p class="world-desc">Webpack's plugin architecture hooks into every stage of the compilation. From asset optimization to environment variable injection — plugins give you infinite extensibility through the Tapable event system.</p>
+        <div class="code-block" style="margin-top:0">
+          <span class="code-cm">// Essential plugins</span><br>
+          <span class="code-kw">const</span> { <span class="code-tag">DefinePlugin</span> } = <span class="code-fn">require</span>(<span class="code-str">'webpack'</span>);<br><br>
+          <span class="code-tag">plugins</span>: [<br>
+          &nbsp;&nbsp;<span class="code-kw">new</span> <span class="code-fn">HtmlWebpackPlugin</span>({ <span class="code-tag">template</span>: <span class="code-str">'./index.html'</span> }),<br>
+          &nbsp;&nbsp;<span class="code-kw">new</span> <span class="code-fn">MiniCssExtractPlugin</span>(),<br>
+          &nbsp;&nbsp;<span class="code-kw">new</span> <span class="code-fn">DefinePlugin</span>({ <span class="code-tag">VERSION</span>: <span class="code-str">'"6.0"'</span> })<br>
+          ]
+        </div>
+        <div class="feature-pills" style="margin-top:16px">
+          <span class="pill pill-orange">Tapable API</span>
+          <span class="pill pill-blue">Compiler Hooks</span>
+          <span class="pill pill-purple">Custom Plugins</span>
+        </div>
+      </div>
+
+      <div class="world-visual reveal-left">
+        <div class="glass glass-hot" style="padding:24px;width:100%;border-radius:20px">
+          <div style="font-family:var(--orb);font-size:10px;color:var(--neon-orange);letter-spacing:.15em;margin-bottom:20px">PLUGIN ECOSYSTEM</div>
+          <div class="plugin-engine">
+            <div class="plugin-item">
+              <div class="plugin-icon">🧠</div>
+              <div>
+                <div class="plugin-name">HtmlWebpackPlugin</div>
+                <div class="plugin-desc">Generates HTML with injected bundles</div>
+              </div>
+              <div class="plugin-badge" style="background:rgba(0,255,136,.1);color:var(--neon-green);border:1px solid rgba(0,255,136,.3)">CORE</div>
+            </div>
+            <div class="plugin-item">
+              <div class="plugin-icon">✂️</div>
+              <div>
+                <div class="plugin-name">MiniCssExtractPlugin</div>
+                <div class="plugin-desc">Extracts CSS into separate files</div>
+              </div>
+              <div class="plugin-badge" style="background:rgba(0,212,255,.1);color:var(--neon-blue);border:1px solid rgba(0,212,255,.3)">CSS</div>
+            </div>
+            <div class="plugin-item">
+              <div class="plugin-icon">🔍</div>
+              <div>
+                <div class="plugin-name">BundleAnalyzerPlugin</div>
+                <div class="plugin-desc">Visualize bundle composition</div>
+              </div>
+              <div class="plugin-badge" style="background:rgba(255,107,0,.1);color:var(--neon-orange);border:1px solid rgba(255,107,0,.3)">ANALYZE</div>
+            </div>
+            <div class="plugin-item">
+              <div class="plugin-icon">🔒</div>
+              <div>
+                <div class="plugin-name">CssMinimizerPlugin</div>
+                <div class="plugin-desc">Optimizes and minifies CSS</div>
+              </div>
+              <div class="plugin-badge" style="background:rgba(191,0,255,.1);color:#d060ff;border:1px solid rgba(191,0,255,.3)">PERF</div>
+            </div>
+            <div class="plugin-item" style="border-style:dashed;opacity:.6">
+              <div class="plugin-icon">✨</div>
+              <div>
+                <div class="plugin-name">Your Plugin</div>
+                <div class="plugin-desc">Extend webpack with custom hooks</div>
+              </div>
+              <div class="plugin-badge" style="background:rgba(255,215,0,.1);color:#ffd700;border:1px solid rgba(255,215,0,.3)">CUSTOM</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- W5: PERFORMANCE WORLD -->
+    <section class="world world-section" id="w5">
+      <div class="world-info reveal-left">
+        <div class="world-tag" style="color:#ffd700">World 05 — Performance</div>
+        <h2 class="world-title" style="background:linear-gradient(135deg,#fff,#ffd700);-webkit-background-clip:text;background-clip:text">Ship faster,<br>ship smarter</h2>
+        <p class="world-desc">Webpack 6 ships with persistent caching, improved tree shaking, module federation 2.0, and a completely rewritten asset pipeline that can reduce build times by up to 98%.</p>
+        <div class="doc-tabs">
+          <button class="doc-tab on" onclick="switchTab('perf','caching')">Caching</button>
+          <button class="doc-tab" onclick="switchTab('perf','treeshake')">Tree Shaking</button>
+          <button class="doc-tab" onclick="switchTab('perf','federation')">Federation</button>
+        </div>
+        <div id="perf-caching" class="doc-panel on">
+          <div class="code-block">
+            <span class="code-tag">cache</span>: {<br>
+            &nbsp;&nbsp;<span class="code-tag">type</span>: <span class="code-str">'filesystem'</span>,<br>
+            &nbsp;&nbsp;<span class="code-tag">buildDependencies</span>: {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-tag">config</span>: [<span class="code-fn">__filename</span>]<br>
+            &nbsp;&nbsp;},<br>
+            &nbsp;&nbsp;<span class="code-tag">version</span>: <span class="code-str">'v6'</span><br>
+            }
+          </div>
+        </div>
+        <div id="perf-treeshake" class="doc-panel">
+          <div class="code-block">
+            <span class="code-cm">// Only exported code that is used</span><br>
+            <span class="code-cm">// gets included in the bundle</span><br><br>
+            <span class="code-kw">export</span> <span class="code-kw">const</span> <span class="code-fn">used</span> = () =&gt; <span class="code-str">'✓ included'</span>;<br>
+            <span class="code-kw">export</span> <span class="code-kw">const</span> <span class="code-fn">unused</span> = () =&gt; <span class="code-str">'✗ shaken'</span>;
+          </div>
+        </div>
+        <div id="perf-federation" class="doc-panel">
+          <div class="code-block">
+            <span class="code-kw">new</span> <span class="code-fn">ModuleFederationPlugin</span>({<br>
+            &nbsp;&nbsp;<span class="code-tag">name</span>: <span class="code-str">'host'</span>,<br>
+            &nbsp;&nbsp;<span class="code-tag">remotes</span>: {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-tag">app</span>: <span class="code-str">'app@http://cdn.io/mf.js'</span><br>
+            &nbsp;&nbsp;}<br>
+            })
+          </div>
+        </div>
+        <div class="feature-pills" style="margin-top:16px">
+          <span class="pill pill-blue">Persistent Cache</span>
+          <span class="pill pill-green">Tree Shaking</span>
+          <span class="pill pill-purple">Module Federation</span>
+          <span class="pill pill-orange">Lazy Compilation</span>
+        </div>
+      </div>
+
+      <div class="world-visual reveal-right">
+        <div class="glass glass-hot" style="padding:28px;width:100%;border-radius:20px">
+          <div style="font-family:var(--orb);font-size:10px;color:#ffd700;letter-spacing:.15em;margin-bottom:28px">PERFORMANCE METRICS</div>
+          <div class="perf-bars" id="perf-bars">
+            <div class="perf-row">
+              <div class="perf-label">Build time</div>
+              <div class="perf-track"><div class="perf-bar" style="width:0%;background:linear-gradient(90deg,var(--neon-green),#3ddc84)" data-w="12"></div></div>
+              <div class="perf-val" style="color:var(--neon-green)">0.3s</div>
+            </div>
+            <div class="perf-row">
+              <div class="perf-label">Bundle size</div>
+              <div class="perf-track"><div class="perf-bar" style="width:0%;background:linear-gradient(90deg,var(--neon-blue),#00b4d8)" data-w="22"></div></div>
+              <div class="perf-val" style="color:var(--neon-blue)">42KB</div>
+            </div>
+            <div class="perf-row">
+              <div class="perf-label">Cache hit</div>
+              <div class="perf-track"><div class="perf-bar" style="width:0%;background:linear-gradient(90deg,#ffd700,#ff9f00)" data-w="96"></div></div>
+              <div class="perf-val" style="color:#ffd700">96%</div>
+            </div>
+            <div class="perf-row">
+              <div class="perf-label">Tree shake</div>
+              <div class="perf-track"><div class="perf-bar" style="width:0%;background:linear-gradient(90deg,var(--neon-purple),#e040fb)" data-w="88"></div></div>
+              <div class="perf-val" style="color:var(--neon-purple)">-88%</div>
+            </div>
+            <div class="perf-row">
+              <div class="perf-label">Lazy loaded</div>
+              <div class="perf-track"><div class="perf-bar" style="width:0%;background:linear-gradient(90deg,var(--neon-orange),#ff8f00)" data-w="74"></div></div>
+              <div class="perf-val" style="color:var(--neon-orange)">74%</div>
+            </div>
+          </div>
+          <div style="margin-top:24px;padding:14px 18px;border-radius:10px;
+            background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.2);
+            display:flex;align-items:center;gap:12px">
+            <div style="font-size:24px">⚡</div>
+            <div>
+              <div style="font-family:var(--orb);font-size:11px;color:#ffd700;letter-spacing:.08em">98% FASTER BUILDS</div>
+              <div style="font-size:12px;color:rgba(224,234,255,.5);margin-top:2px">vs Webpack 4 with persistent filesystem cache</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="world-section" style="flex-direction:column;text-align:center;padding:100px 24px">
+      <div class="world-tag reveal-up" style="justify-content:center;color:var(--neon-blue)">Ready to build</div>
+      <h2 class="reveal-up rd1" style="font-family:var(--orb);font-size:clamp(2rem,4vw,3.5rem);
+        font-weight:700;background:linear-gradient(135deg,var(--neon-blue),#fff,var(--neon-purple));
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+        margin:16px 0">Start your Webpack 6 journey</h2>
+      <p class="reveal-up rd2" style="font-size:16px;color:rgba(224,234,255,.6);
+        max-width:500px;margin:0 auto 40px;line-height:1.8">
+        The universe is yours. Install webpack 6 and begin building faster than ever.
+      </p>
+      <div class="reveal-up rd3" style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+        <div class="code-block" style="display:inline-block;font-size:15px">
+          <span style="color:rgba(224,234,255,.4)">$</span> <span style="color:var(--neon-green)">npm install webpack@6 --save-dev</span>
+        </div>
+      </div>
+      <div class="reveal-up rd4" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:28px">
+        <a href="https://webpack.js.org" target="_blank" class="enter-btn" style="font-size:12px;padding:12px 28px">
+          Official Docs
+        </a>
+        <a href="https://github.com/webpack/webpack" target="_blank" class="enter-btn"
+          style="font-size:12px;padding:12px 28px;border-color:var(--neon-green);color:var(--neon-green);
+          box-shadow:0 0 20px rgba(0,255,136,.15)">
+          GitHub
+        </a>
+      </div>
+    </section>
+
+  </div><!-- /universe -->
+
+</div><!-- /scroll-world -->
+
+<script>
+/* ═══════════════════════════════════════════════
+   CURSOR
+═══════════════════════════════════════════════ */
+const cur=document.getElementById('cursor');
+const curR=document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{
+  mx=e.clientX;my=e.clientY;
+  cur.style.left=mx+'px';cur.style.top=my+'px';
+});
+function animCursor(){
+  rx+=(mx-rx)*.14;ry+=(my-ry)*.14;
+  curR.style.left=rx+'px';curR.style.top=ry+'px';
+  requestAnimationFrame(animCursor);
+}
+animCursor();
+document.querySelectorAll('button,a,[class*="plugin-item"],[class*="chunk"],[class*="e-file"],[class*="m-node"]').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{
+    cur.style.width='20px';cur.style.height='20px';cur.style.opacity='.6';
+    curR.style.width='52px';curR.style.height='52px';curR.style.borderColor='rgba(0,212,255,.8)';
+  });
+  el.addEventListener('mouseleave',()=>{
+    cur.style.width='12px';cur.style.height='12px';cur.style.opacity='1';
+    curR.style.width='36px';curR.style.height='36px';curR.style.borderColor='rgba(0,212,255,.4)';
+  });
+});
+
+/* ═══════════════════════════════════════════════
+   LOADER
+═══════════════════════════════════════════════ */
+const loaderMsgs=['IGNITING ENGINE','LOADING MODULES','RESOLVING DEPS','BUILDING GRAPH','READY TO RIDE'];
+let lp=0;
+const loaderBar=document.getElementById('loader-bar');
+const loaderText=document.getElementById('loader-text');
+const loadInt=setInterval(()=>{
+  lp+=2;
+  loaderBar.style.width=lp+'%';
+  loaderText.textContent=loaderMsgs[Math.floor(lp/22)]||loaderMsgs[4];
+  if(lp>=100){
+    clearInterval(loadInt);
+    setTimeout(()=>document.getElementById('loader').classList.add('hidden'),600);
+  }
+},30);
+
+/* ═══════════════════════════════════════════════
+   BACKGROUND STARS CANVAS
+═══════════════════════════════════════════════ */
+const bgCanvas=document.getElementById('scene-canvas');
+const bgCtx=bgCanvas.getContext('2d');
+let stars=[];
+function resizeBg(){bgCanvas.width=window.innerWidth;bgCanvas.height=window.innerHeight;}
+resizeBg();
+window.addEventListener('resize',resizeBg);
+for(let i=0;i<200;i++)stars.push({
+  x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,
+  r:Math.random()*1.5+.3,a:Math.random(),da:Math.random()*.02-.01,
+  color:Math.random()>.7?'0,212,255':Math.random()>.5?'191,0,255':'255,255,255'
+});
+function drawBg(){
+  bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+  stars.forEach(s=>{
+    s.a+=s.da;if(s.a<0||s.a>1)s.da*=-1;
+    bgCtx.beginPath();bgCtx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    bgCtx.fillStyle=`rgba(${s.color},${s.a})`;bgCtx.fill();
+  });
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+/* ═══════════════════════════════════════════════
+   ROAD CANVAS — SCROLLING NIGHT SCENE
+═══════════════════════════════════════════════ */
+const roadCanvas=document.getElementById('road-canvas');
+const rc=roadCanvas.getContext('2d');
+let scrollProg=0;// 0–1 across s0
+
+function resizeRoad(){
+  roadCanvas.width=window.innerWidth;
+  roadCanvas.height=window.innerHeight;
+}
+resizeRoad();
+window.addEventListener('resize',resizeRoad);
+
+/* ── HERO STARFIELD STATE ───────────────────────── */
+const _hero={
+  t:0,
+  // Shooting stars
+  shoots:[],
+  // Nebula drift offset driven by mouse
+  mx:0, my:0, tmx:0, tmy:0,
+};
+
+// Subtle parallax from mouse
+roadCanvas.addEventListener('mousemove',e=>{
+  const rect=roadCanvas.getBoundingClientRect();
+  _hero.tmx=(e.clientX-rect.left)/rect.width-.5;  // -0.5 → 0.5
+  _hero.tmy=(e.clientY-rect.top)/rect.height-.5;
+});
+
+function drawHero(progress){
+  const W=roadCanvas.width,H=roadCanvas.height;
+  _hero.t+=.016;
+  _hero.mx+=(_hero.tmx-_hero.mx)*.06;
+  _hero.my+=(_hero.tmy-_hero.my)*.06;
+
+  rc.clearRect(0,0,W,H);
+
+  // ── Deep space background ─────────────────────
+  const bg=rc.createRadialGradient(W*.5+_hero.mx*60,H*.45+_hero.my*40,0,W*.5,H*.5,Math.max(W,H)*.8);
+  bg.addColorStop(0,'#05102a');
+  bg.addColorStop(.45,'#020818');
+  bg.addColorStop(1,'#010208');
+  rc.fillStyle=bg;rc.fillRect(0,0,W,H);
+
+  // ── Nebula clouds (parallax with mouse) ───────
+  const nebulaDefs=[
+    {cx:.28,cy:.35,rx:W*.55,ry:H*.35,col:'rgba(0,60,140,0.07)',px:30,py:20},
+    {cx:.72,cy:.65,rx:W*.5,ry:H*.3,col:'rgba(80,0,140,0.06)',px:-24,py:16},
+    {cx:.5,cy:.5,rx:W*.4,ry:H*.25,col:'rgba(0,100,180,0.05)',px:14,py:-10},
+  ];
+  nebulaDefs.forEach(n=>{
+    rc.save();
+    const nx=W*n.cx+_hero.mx*n.px, ny=H*n.cy+_hero.my*n.py;
+    const ng=rc.createRadialGradient(nx,ny,0,nx,ny,Math.max(n.rx,n.ry));
+    ng.addColorStop(0,n.col);ng.addColorStop(1,'transparent');
+    rc.fillStyle=ng;
+    rc.beginPath();rc.ellipse(nx,ny,n.rx,n.ry,0,0,Math.PI*2);
+    rc.fill();rc.restore();
+  });
+
+  // ── Star field ────────────────────────────────
+  // Pre-seeded so it doesn't flicker (deterministic positions)
+  rc.save();
+  for(let i=0;i<260;i++){
+    const px=((i*173.31+17)%W+_hero.mx*(2+i%4))%(W);
+    const py=((i*97.13+31)%H+_hero.my*(1+i%3))%(H);
+    const size=i%7===0?2:i%3===0?1.2:.5;
+    const pulse=Math.abs(Math.sin(_hero.t*.8+i*.4));
+    const alpha=.25+pulse*.6;
+    const col=i%11===0?`rgba(140,200,255,${alpha})`:
+               i%7===0 ?`rgba(200,180,255,${alpha})`:
+                         `rgba(255,255,255,${alpha*.8})`;
+    rc.beginPath();rc.arc(px,py,size,0,Math.PI*2);
+    rc.fillStyle=col;rc.fill();
+  }
+  rc.restore();
+
+  // ── Shooting stars ────────────────────────────
+  if(Math.random()<.015){
+    _hero.shoots.push({
+      x:Math.random()*W*.7,y:Math.random()*H*.4,
+      vx:6+Math.random()*8,vy:2+Math.random()*4,
+      life:1,len:80+Math.random()*120
+    });
+  }
+  _hero.shoots=_hero.shoots.filter(s=>{
+    s.x+=s.vx;s.y+=s.vy;s.life-=.025;
+    if(s.life<=0)return false;
+    rc.save();
+    const sg=rc.createLinearGradient(s.x-s.vx*6,s.y-s.vy*6,s.x,s.y);
+    sg.addColorStop(0,'transparent');
+    sg.addColorStop(1,`rgba(180,230,255,${s.life*.8})`);
+    rc.strokeStyle=sg;rc.lineWidth=1.5;
+    rc.beginPath();rc.moveTo(s.x-s.vx*6,s.y-s.vy*6);rc.lineTo(s.x,s.y);
+    rc.stroke();rc.restore();
+    return true;
+  });
+
+  // ── Perspective road lines (scroll-speed) ────
+  const roadAlpha=0.18+progress*.35;
+  const vanishX=W*.5, vanishY=H*.42+progress*H*-.08;
+  const roadEdgeL_top=W*.38, roadEdgeR_top=W*.62;
+  const roadEdgeL_bot=W*.02, roadEdgeR_bot=W*.98;
+
+  // Road fill
+  rc.save();
+  rc.beginPath();
+  rc.moveTo(roadEdgeL_top,vanishY);rc.lineTo(roadEdgeR_top,vanishY);
+  rc.lineTo(roadEdgeR_bot,H);rc.lineTo(roadEdgeL_bot,H);rc.closePath();
+  const rg=rc.createLinearGradient(0,vanishY,0,H);
+  rg.addColorStop(0,`rgba(0,20,60,${roadAlpha*.4})`);
+  rg.addColorStop(.5,`rgba(5,20,50,${roadAlpha*.7})`);
+  rg.addColorStop(1,`rgba(2,10,30,${roadAlpha})`);
+  rc.fillStyle=rg;rc.fill();rc.restore();
+
+  // Road edge glow lines
+  rc.save();
+  [[roadEdgeL_top,vanishY,roadEdgeL_bot,H],[roadEdgeR_top,vanishY,roadEdgeR_bot,H]].forEach(([x1,y1,x2,y2])=>{
+    const eg=rc.createLinearGradient(x1,y1,x2,y2);
+    eg.addColorStop(0,'transparent');
+    eg.addColorStop(.4,`rgba(0,212,255,${roadAlpha*.6})`);
+    eg.addColorStop(1,`rgba(0,212,255,${roadAlpha})`);
+    rc.strokeStyle=eg;rc.lineWidth=1.5+progress;
+    rc.shadowColor='rgba(0,212,255,0.6)';rc.shadowBlur=8+progress*12;
+    rc.beginPath();rc.moveTo(x1,y1);rc.lineTo(x2,y2);rc.stroke();
+  });
+  rc.shadowBlur=0;rc.restore();
+
+  // Center dashes — animate forward with scroll
+  rc.save();
+  const dashOffset=(progress*H*.5)%60;
+  rc.setLineDash([30,30]);rc.lineDashOffset=-dashOffset;
+  const dg=rc.createLinearGradient(vanishX,vanishY,vanishX,H);
+  dg.addColorStop(0,'transparent');
+  dg.addColorStop(.3,`rgba(255,210,0,${roadAlpha*.5})`);
+  dg.addColorStop(1,`rgba(255,210,0,${roadAlpha*.8})`);
+  rc.strokeStyle=dg;rc.lineWidth=2;
+  rc.beginPath();rc.moveTo(vanishX,vanishY);rc.lineTo(vanishX,H);rc.stroke();
+  rc.setLineDash([]);rc.restore();
+
+  // Lateral speed-line streaks on road (motion effect as you scroll)
+  if(progress>.1){
+    rc.save();
+    const streakAlpha=(progress-.1)*.35;
+    for(let i=0;i<12;i++){
+      const ty=vanishY+(H-vanishY)*(i/12);
+      const spreadFactor=i/12;
+      const lx=vanishX-(vanishX-roadEdgeL_bot)*spreadFactor*.85;
+      const rx=vanishX+(roadEdgeR_bot-vanishX)*spreadFactor*.85;
+      const streak=rc.createLinearGradient(lx,ty,rx,ty);
+      streak.addColorStop(0,'transparent');
+      streak.addColorStop(.2,`rgba(0,212,255,${streakAlpha*(1-i/14)})`);
+      streak.addColorStop(.5,`rgba(120,220,255,${streakAlpha*.6*(1-i/14)})`);
+      streak.addColorStop(.8,`rgba(0,212,255,${streakAlpha*(1-i/14)})`);
+      streak.addColorStop(1,'transparent');
+      rc.strokeStyle=streak;rc.lineWidth=.8;
+      rc.beginPath();rc.moveTo(lx,ty);rc.lineTo(rx,ty);rc.stroke();
+    }
+    rc.restore();
+  }
+
+  // ── PRODUCT NAME — large glowing text ─────────
+  // Fades in over first 15% of scroll, stays visible, shifts up with scroll
+  const nameAlpha=Math.min(1,_hero.t*1.2);   // fades in on load
+  const nameY=H*.38-progress*H*.18;          // rises as user scrolls
+  const nameScale=1-progress*.15;            // very slightly shrinks
+
+  rc.save();
+  rc.translate(W*.5, nameY);
+  rc.scale(nameScale,nameScale);
+  rc.textAlign='center';
+  rc.textBaseline='middle';
+
+  // Outer glow pass (large blur)
+  rc.save();
+  rc.shadowColor='rgba(0,212,255,0.9)';rc.shadowBlur=80;
+  const fontSize=Math.min(W*.11,90);
+  rc.font=`900 ${fontSize}px 'Orbitron', monospace`;
+  rc.fillStyle=`rgba(0,200,255,${nameAlpha*.2})`;
+  rc.fillText('WEBPACK 6',0,0);
+  rc.restore();
+
+  // Mid glow pass
+  rc.save();
+  rc.shadowColor='rgba(0,212,255,0.8)';rc.shadowBlur=30;
+  rc.font=`900 ${fontSize}px 'Orbitron', monospace`;
+  // Gradient fill for main text
+  const tg=rc.createLinearGradient(-W*.3,-fontSize*.6,W*.3,fontSize*.6);
+  tg.addColorStop(0,'#00d4ff');
+  tg.addColorStop(.35,'#ffffff');
+  tg.addColorStop(.65,'#ffffff');
+  tg.addColorStop(1,'#bf00ff');
+  rc.fillStyle=tg;
+  rc.globalAlpha=nameAlpha;
+  rc.fillText('WEBPACK 6',0,0);
+  rc.restore();
+
+  // Tagline below
+  rc.save();
+  rc.shadowColor='rgba(0,212,255,0.5)';rc.shadowBlur=16;
+  const tagSize=Math.min(W*.022,16);
+  rc.font=`400 ${tagSize}px 'Orbitron', monospace`;
+  rc.fillStyle=`rgba(100,210,255,${nameAlpha*.75})`;
+  rc.letterSpacing='0.22em';
+  rc.fillText('THE IMMERSIVE BUNDLER EXPERIENCE',0,fontSize*.72);
+  rc.restore();
+
+  // Thin horizontal rule under tagline
+  rc.save();
+  rc.globalAlpha=nameAlpha*.4;
+  const ruleW=Math.min(W*.35,320);
+  const ruleY=fontSize*.98;
+  const rl=rc.createLinearGradient(-ruleW/2,0,ruleW/2,0);
+  rl.addColorStop(0,'transparent');
+  rl.addColorStop(.5,'rgba(0,212,255,0.8)');
+  rl.addColorStop(1,'transparent');
+  rc.strokeStyle=rl;rc.lineWidth=1;
+  rc.beginPath();rc.moveTo(-ruleW/2,ruleY);rc.lineTo(ruleW/2,ruleY);rc.stroke();
+  rc.restore();
+
+  rc.restore(); // end name transform
+
+  // ── VERSION badge ─────────────────────────────
+  rc.save();
+  rc.textAlign='center';rc.textBaseline='middle';
+  const badgeY=H*.34-progress*H*.18-42;
+  rc.font=`600 11px 'Orbitron', monospace`;
+  rc.fillStyle=`rgba(0,212,255,${nameAlpha*.6})`;
+  rc.letterSpacing='0.15em';
+  rc.fillText('GOOGLE SUMMER OF CODE 2026 · INTERACTIVE DOCS',W*.5,badgeY);
+  rc.restore();
+
+  // ── Scroll pulse ring at vanishing point ──────
+  const ringAlpha=(Math.sin(_hero.t*2)*.5+.5)*.3+.1;
+  rc.save();
+  rc.beginPath();rc.arc(vanishX,vanishY,6+Math.sin(_hero.t*3)*3,0,Math.PI*2);
+  rc.strokeStyle=`rgba(0,212,255,${ringAlpha})`;rc.lineWidth=1.5;rc.stroke();
+  rc.beginPath();rc.arc(vanishX,vanishY,16+Math.sin(_hero.t*2)*5,0,Math.PI*2);
+  rc.strokeStyle=`rgba(0,212,255,${ringAlpha*.5})`;rc.lineWidth=1;rc.stroke();
+  rc.restore();
+
+  // ── Portal preview at end ─────────────────────
+  if(progress>.65){
+    const pa=(progress-.65)/0.35;
+    rc.save();
+    for(let r=90;r>15;r-=9){
+      const rScale=.5+pa*.5;
+      rc.beginPath();rc.arc(vanishX,vanishY,r*rScale,0,Math.PI*2);
+      rc.strokeStyle=`rgba(0,212,255,${pa*.25*(1-r/90)})`;
+      rc.lineWidth=2;rc.stroke();
+    }
+    rc.restore();
+  }
+}
+
+function roadLoop(){
+  const s0=document.getElementById('s0');
+  const rect=s0.getBoundingClientRect();
+  const sectionH=s0.offsetHeight-window.innerHeight;
+  scrollProg=Math.min(1,Math.max(0,-rect.top/sectionH));
+  drawHero(scrollProg);
+  requestAnimationFrame(roadLoop);
+}
+roadLoop();
+
+/* ═══════════════════════════════════════════════
+   PORTAL CANVAS
+═══════════════════════════════════════════════ */
+const pCanvas=document.getElementById('portal-canvas');
+const pc=pCanvas.getContext('2d');
+function resizePortal(){pCanvas.width=pCanvas.parentElement.offsetWidth;pCanvas.height=pCanvas.parentElement.offsetHeight;}
+resizePortal();
+window.addEventListener('resize',resizePortal);
+let portalT=0;
+function drawPortal(){
+  portalT+=.016;
+  const W=pCanvas.width,H=pCanvas.height;
+  pc.clearRect(0,0,W,H);
+  const cx=W/2,cy=H/2;
+
+  // Portal rings
+  for(let i=8;i>0;i--){
+    const r=60+i*28+Math.sin(portalT+i)*(10+i*3);
+    const alpha=(1-i/9)*.4;
+    const hue=200+i*15+Math.sin(portalT*.5)*20;
+    pc.beginPath();pc.arc(cx,cy,r,0,Math.PI*2);
+    pc.strokeStyle=`hsla(${hue},100%,60%,${alpha})`;
+    pc.lineWidth=2+i*.5;pc.stroke();
+  }
+
+  // Rotating energy beams
+  for(let i=0;i<12;i++){
+    const angle=portalT*.8+(i/12)*Math.PI*2;
+    const r1=50,r2=120+Math.sin(portalT+i*0.5)*20;
+    pc.beginPath();
+    pc.moveTo(cx+Math.cos(angle)*r1,cy+Math.sin(angle)*r1);
+    pc.lineTo(cx+Math.cos(angle)*r2,cy+Math.sin(angle)*r2);
+    pc.strokeStyle=`rgba(0,212,255,${.15+Math.sin(portalT+i)*.1})`;
+    pc.lineWidth=1.5;pc.stroke();
+  }
+
+  // Core glow
+  const coreGrad=pc.createRadialGradient(cx,cy,0,cx,cy,60);
+  coreGrad.addColorStop(0,'rgba(255,255,255,0.9)');
+  coreGrad.addColorStop(.2,'rgba(0,212,255,0.6)');
+  coreGrad.addColorStop(.7,'rgba(191,0,255,0.2)');
+  coreGrad.addColorStop(1,'transparent');
+  pc.beginPath();pc.arc(cx,cy,60,0,Math.PI*2);
+  pc.fillStyle=coreGrad;pc.fill();
+
+  // Floating particles
+  for(let i=0;i<30;i++){
+    const angle=(i/30)*Math.PI*2+portalT*.3;
+    const dist=80+Math.sin(portalT+i*0.7)*40;
+    const px=cx+Math.cos(angle)*dist,py=cy+Math.sin(angle)*dist;
+    pc.beginPath();pc.arc(px,py,1.5,0,Math.PI*2);
+    pc.fillStyle=i%2===0?'rgba(0,212,255,0.8)':'rgba(191,0,255,0.8)';pc.fill();
+  }
+
+  requestAnimationFrame(drawPortal);
+}
+drawPortal();
+
+/* ═══════════════════════════════════════════════
+   MODULE GRAPH
+═══════════════════════════════════════════════ */
+const graphEl=document.getElementById('module-graph');
+const nodes=[
+  {id:'index.js',x:48,y:44,color:'var(--neon-blue)',bg:'rgba(0,212,255,.08)',label:'index\n.js'},
+  {id:'app.js',x:68,y:25,color:'var(--neon-green)',bg:'rgba(0,255,136,.08)',label:'app\n.js'},
+  {id:'styles.css',x:70,y:65,color:'#d060ff',bg:'rgba(191,0,255,.08)',label:'styles\n.css'},
+  {id:'utils.js',x:30,y:25,color:'#ffd700',bg:'rgba(255,215,0,.08)',label:'utils\n.js'},
+  {id:'api.js',x:25,y:62,color:'#ff6b00',bg:'rgba(255,107,0,.08)',label:'api\n.js'},
+  {id:'vendor',x:85,y:44,color:'rgba(224,234,255,.4)',bg:'rgba(255,255,255,.04)',label:'vendor\n.js'},
+];
+function var_(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()||'#ff6b00';}
+const edges=[['index.js','app.js'],['index.js','styles.css'],['index.js','utils.js'],['index.js','api.js'],['app.js','vendor'],['utils.js','vendor']];
+
+function buildGraph(){
+  graphEl.innerHTML='';
+  const W=graphEl.offsetWidth,H=graphEl.offsetHeight||340;
+
+  // SVG for edges
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
+  const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+  const grad=document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
+  grad.id='lg';grad.innerHTML='<stop offset="0%" stop-color="#00d4ff" stop-opacity=".6"/><stop offset="100%" stop-color="#bf00ff" stop-opacity=".2"/>';
+  defs.appendChild(grad);svg.appendChild(defs);
+  edges.forEach(([a,b])=>{
+    const na=nodes.find(n=>n.id===a),nb=nodes.find(n=>n.id===b);
+    if(!na||!nb)return;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',na.x+'%');line.setAttribute('y1',na.y+'%');
+    line.setAttribute('x2',nb.x+'%');line.setAttribute('y2',nb.y+'%');
+    line.setAttribute('stroke','url(#lg)');line.setAttribute('stroke-width','1.5');
+    svg.appendChild(line);
+  });
+  graphEl.appendChild(svg);
+
+  // Nodes
+  nodes.forEach(n=>{
+    const el=document.createElement('div');
+    el.className='m-node';
+    el.style.cssText=`left:${n.x}%;top:${n.y}%;transform:translate(-50%,-50%);
+      border-color:${n.color};background:${n.bg};color:${n.color};font-size:9px`;
+    el.innerHTML=n.label.replace('\n','<br>');
+    el.addEventListener('mouseenter',()=>{
+      el.style.boxShadow=`0 0 24px ${n.color},0 0 48px ${n.color.replace('var(--neon-blue)','rgba(0,212,255,.3)')}`;
+      el.style.background=n.bg.replace('.08','.18').replace('.04','.1');
+    });
+    el.addEventListener('mouseleave',()=>{el.style.boxShadow='';el.style.background=n.bg;});
+    graphEl.appendChild(el);
+  });
+}
+buildGraph();
+window.addEventListener('resize',buildGraph);
+
+/* ═══════════════════════════════════════════════
+   NAV SCROLL PROGRESS
+═══════════════════════════════════════════════ */
+window.addEventListener('scroll',()=>{
+  const total=document.body.scrollHeight-window.innerHeight;
+  const pct=(window.scrollY/total)*100;
+  document.getElementById('nav-progress').style.width=pct+'%';
+  document.getElementById('top-btn').classList.toggle('show',window.scrollY>400);
+  updateMinimap();
+},{passive:true});
+
+/* ═══════════════════════════════════════════════
+   MINI MAP
+═══════════════════════════════════════════════ */
+const sections=['s0','s-portal','w1','w2','w3','w4','w5'];
+function updateMinimap(){
+  const mid=window.scrollY+window.innerHeight/2;
+  let active='s0';
+  sections.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&el.offsetTop<=mid)active=id;
+  });
+  document.querySelectorAll('.map-dot').forEach(d=>{
+    d.classList.toggle('active',d.dataset.section===active);
+  });
+}
+function scrollToSection(i){
+  const el=document.getElementById(sections[i]);
+  if(el)el.scrollIntoView({behavior:'smooth'});
+}
+
+/* ═══════════════════════════════════════════════
+   REVEAL ON SCROLL
+═══════════════════════════════════════════════ */
+const io=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});
+},{threshold:.1,rootMargin:'0px 0px -60px 0px'});
+document.querySelectorAll('.reveal-up,.reveal-left,.reveal-right').forEach(el=>io.observe(el));
+
+/* PERF BARS */
+const perfIO=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.querySelectorAll('.perf-bar').forEach(b=>{b.style.width=b.dataset.w+'%';});
+      perfIO.unobserve(e.target);
+    }
+  });
+},{threshold:.3});
+const perfEl=document.getElementById('perf-bars');
+if(perfEl)perfIO.observe(perfEl.closest('.world-visual')||perfEl);
+
+/* ═══════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════ */
+function switchTab(group,tab){
+  document.querySelectorAll(`[id^="${group}-"]`).forEach(el=>{
+    el.classList.toggle('on',el.id===`${group}-${tab}`);
+  });
+  // find parent doc-tabs
+  const panels=document.querySelectorAll(`#${group}-${tab}`);
+  panels.forEach(p=>{
+    p.closest('.world-info').querySelectorAll('.doc-tab').forEach(t=>{
+      t.classList.toggle('on',t.textContent.toLowerCase().replace(/\s+/g,'').includes(tab.toLowerCase().replace(/\s+/g,'')));
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   ENTER UNIVERSE BUTTON
+═══════════════════════════════════════════════ */
+function enterUniverse(){
+  const u=document.getElementById('universe');
+  if(u)u.scrollIntoView({behavior:'smooth'});
+}
+
+/* ═══════════════════════════════════════════════
+   MUSIC TOGGLE (Web Audio ambient drone)
+═══════════════════════════════════════════════ */
+let audioCtx=null,playing=false;
+let gainNode,oscillators=[];
+function toggleMusic(){
+  const btn=document.getElementById('music-btn');
+  if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(playing){
+    oscillators.forEach(o=>{try{o.stop();}catch(e){}});
+    oscillators=[];playing=false;btn.textContent='🔇';btn.classList.remove('playing');
+  } else {
+    gainNode=audioCtx.createGain();gainNode.gain.setValueAtTime(0,audioCtx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(.08,audioCtx.currentTime+2);
+    gainNode.connect(audioCtx.destination);
+    const freqs=[55,82.5,110,165];
+    freqs.forEach((f,i)=>{
+      const o=audioCtx.createOscillator();
+      const lfo=audioCtx.createOscillator();
+      const lfoGain=audioCtx.createGain();
+      lfo.frequency.setValueAtTime(.1+i*.05,audioCtx.currentTime);
+      lfoGain.gain.setValueAtTime(f*.02,audioCtx.currentTime);
+      lfo.connect(lfoGain);lfoGain.connect(o.frequency);lfo.start();
+      o.type=i%2===0?'sine':'triangle';
+      o.frequency.setValueAtTime(f,audioCtx.currentTime);
+      o.connect(gainNode);o.start();oscillators.push(o,lfo);
+    });
+    playing=true;btn.textContent='🔊';btn.classList.add('playing');
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   FLOATING CODE ELEMENTS
+═══════════════════════════════════════════════ */
+const floatSnippets=['import()','require()','module','chunk','plugin','loader','resolve','emit','tap()','webpack()','entry','output','bundle'];
+function spawnFloater(){
+  const el=document.createElement('div');
+  el.className='float-code';
+  el.textContent=floatSnippets[Math.floor(Math.random()*floatSnippets.length)];
+  el.style.cssText=`left:${Math.random()*90+5}%;bottom:0;--dur:${8+Math.random()*8}s;
+    color:rgba(0,212,255,${.1+Math.random()*.2});font-size:${10+Math.random()*4}px;
+    animation-delay:${Math.random()*4}s`;
+  document.getElementById('universe').appendChild(el);
+  setTimeout(()=>el.remove(),(12+Math.random()*8)*1000);
+}
+setInterval(spawnFloater,3000);
+
+/* ═══════════════════════════════════════════════
+   PARTICLES
+═══════════════════════════════════════════════ */
+for(let i=0;i<20;i++){
+  const p=document.createElement('div');
+  p.className='particle';
+  const colors=['var(--neon-blue)','var(--neon-purple)','var(--neon-green)'];
+  const size=Math.random()*3+1;
+  p.style.cssText=`
+    width:${size}px;height:${size}px;
+    left:${Math.random()*100}%;
+    background:${colors[Math.floor(Math.random()*3)]};
+    --dur:${8+Math.random()*12}s;
+    --dx:${-60+Math.random()*120}px;
+    animation-delay:${Math.random()*12}s;
+    box-shadow:0 0 6px currentColor`;
+  document.body.appendChild(p);
+}
+
+/* ═══════════════════════════════════════════════
+   INIT PERF BARS WHEN VISIBLE (retry)
+═══════════════════════════════════════════════ */
+setTimeout(()=>{
+  const perfIO2=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        e.target.querySelectorAll('.perf-bar').forEach(b=>{b.style.width=b.dataset.w+'%';});
+      }
+    });
+  },{threshold:.2});
+  const pw=document.querySelector('#w5 .world-visual');
+  if(pw)perfIO2.observe(pw);
+},500);
+</script>
+</body>
+</html>
